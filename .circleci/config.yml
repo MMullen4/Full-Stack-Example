@@ -1,60 +1,29 @@
 version: 2.1
 
-orbs:
-  cypress: cypress-io/cypress@3.3.1
-
 jobs:
-  start-server:
-    docker:
-      - image: cypress/base:latest
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: npm install
-      - run:
-          name: Build the app
-          command: npm run build
-  deploy-to-render-staging:
+  hello-world-job:
     docker:
       - image: cimg/base:current
     steps:
-      - run:
-          name: Deploy to Render Staging
-          command: |
-            echo "Deploying to Render Staging"
-            curl $RENDER_STAGING_DEPLOYHOOK
+      - run: echo "Hello, World!"
   deploy-to-render-production:
     docker:
       - image: cimg/base:current
     steps:
+      - checkout
       - run:
-          name: Deploy to Render Production
+          name: Deploy to Render production
           command: |
-            echo "Deploying to Render production"
-            curl $RENDER_PRODUCTION_DEPLOYHOOK
-
+            # Example deployment command using curl to Render API
+            curl -X POST \
+              -H "Accept: application/json" \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              -d '' \
+              https://api.render.com/deploy/srv-REPLACE_WITH_SERVICE_ID
 workflows:
-  run-tests-and-deploy-to-staging-hold-then-production:
+  hello-world-workflow:
     jobs:
-      - start-server
-        # Make sure to add MONGODB_URI to ENVIRONMENT VARIABLES in CircleCI so that the tests can connect to the database
-      - cypress/run:
-          name: run-component-tests
-          cypress-command: npx cypress run --component
-      - deploy-to-render-staging:
-          requires:
-            - run-component-tests
-          filters:
-            branches:
-              only: main
-      - hold:
-          type: approval
-          requires:
-            - deploy-to-render-staging
+      - hello-world-job
       - deploy-to-render-production:
           requires:
-            - hold
-          filters:
-            branches:
-              only: main
+            - hello-world-job
