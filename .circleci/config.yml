@@ -14,12 +14,17 @@ jobs:
       - run:
           name: Deploy to Render production
           command: |
-            # Example deployment command using curl to Render API
+            if [ -z "$RENDER_API_KEY" ]; then
+              echo "RENDER_API_KEY is not set. Configure it in your project or org context settings." && exit 1
+            fi
+            if [ -z "$RENDER_SERVICE_ID" ]; then
+              echo "RENDER_SERVICE_ID is not set. Configure it in your project or org context settings." && exit 1
+            fi
             curl -X POST \
               -H "Accept: application/json" \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -d '' \
-              https://api.render.com/deploy/srv-REPLACE_WITH_SERVICE_ID
+              https://api.render.com/deploy/$RENDER_SERVICE_ID
 workflows:
   hello-world-workflow:
     jobs:
