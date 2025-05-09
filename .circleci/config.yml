@@ -1,34 +1,63 @@
 version: 2.1
 
+orbs:
+  cypress: cypress-io/cypress@3.3.1
+
 jobs:
-  hello-world-job:
+  start-server:
+    docker:
+      - image: cypress/base:latest
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Build the app
+          command: npm run build
+  deploy-to-render-staging:
     docker:
       - image: cimg/base:current
     steps:
-      - run: echo "Hello, World!"
+      - run:
+          name: Deploy to Render Staging
+          command: |
+            echo "Deploying to Render Staging"
+            curl $RENDER_STAGING_DEPLOYHOOK
   deploy-to-render-production:
     docker:
       - image: cimg/base:current
     steps:
-      - checkout
       - run:
-          name: Deploy to Render production
+          name: Deploy to Render Production
           command: |
-            if [ -z "$RENDER_API_KEY" ]; then
-              echo "RENDER_API_KEY is not set. Configure it in your project or org context settings." && exit 1
+            echo "Deploying to Render production"
+            if [ -z "$RENDER_PRODUCTION_DEPLOYHOOK" ]; then
+              echo "RENDER_PRODUCTION_DEPLOYHOOK is not set" >&2
+              exit 1
             fi
-            if [ -z "$RENDER_SERVICE_ID" ]; then
-              echo "RENDER_SERVICE_ID is not set. Configure it in your project or org context settings." && exit 1
-            fi
-            curl -X POST \
-              -H "Accept: application/json" \
-              -H "Authorization: Bearer $RENDER_API_KEY" \
-              -d '' \
-              https://api.render.com/deploy/$RENDER_SERVICE_ID
+            curl -f "$RENDER_PRODUCTION_DEPLOYHOOK"
 workflows:
-  hello-world-workflow:
+  run-tests-and-deploy-to-staging-hold-then-production:
     jobs:
-      - hello-world-job
+      - start-server
+        # Make sure to add MONGODB_URI to ENVIRONMENT VARIABLES in CircleCI so that the tests can connect to the database
+      - cypress/run:
+          name: run-component-tests
+          cypress-command: npx cypress run --component
+      - deploy-to-render-staging:
+          requires:
+            - run-component-tests
+          filters:
+            branches:
+              only: main
+      - hold:
+          type: approval
+          requires:
+            - deploy-to-render-staging
       - deploy-to-render-production:
           requires:
-            - hello-world-job
+            - hold
+          filters:
+            branches:
+              only: main
